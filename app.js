@@ -215,6 +215,10 @@ function renderQuestionMap() {
   });
 }
 
+function looksLikeCode(text) {
+  return /[\n\r]/.test(text) || /\b(public|class|static|void|new|Thread|Runnable|System\.out|import|synchronized|try|catch)\b|[{};<>]/.test(text);
+}
+
 function renderQuiz() {
   const question = state.questions[state.currentIndex];
   const answeredCount = state.answers.filter((answer) => answer !== null).length;
@@ -226,6 +230,7 @@ function renderQuiz() {
     : `Câu ${state.currentIndex + 1}`;
   elements.questionStatus.textContent = state.answers[state.currentIndex] === null ? "Chưa trả lời" : "Đã trả lời";
   elements.questionText.textContent = question.text;
+  elements.questionText.classList.toggle("code-content", looksLikeCode(question.text));
   elements.prevButton.disabled = state.currentIndex === 0;
   elements.nextButton.disabled = state.currentIndex === state.questions.length - 1;
 
@@ -235,8 +240,16 @@ function renderQuiz() {
     button.type = "button";
     button.className = "option-button";
     if (state.answers[state.currentIndex] === index) button.classList.add("selected");
-    button.innerHTML = `<span class="option-marker">${String.fromCharCode(65 + index)}</span><span></span>`;
-    button.querySelector("span:last-child").textContent = option;
+    const marker = document.createElement("span");
+    marker.className = "option-marker";
+    marker.textContent = String.fromCharCode(65 + index);
+
+    const optionText = document.createElement("span");
+    optionText.className = "option-text";
+    optionText.textContent = option;
+    optionText.classList.toggle("code-content", looksLikeCode(option));
+
+    button.append(marker, optionText);
     button.addEventListener("click", () => {
       state.answers[state.currentIndex] = index;
       renderQuiz();
@@ -290,6 +303,7 @@ function renderReview() {
       if (optionIndex === question.answer) tags.push("đáp án đúng");
       if (optionIndex === state.answers[index]) tags.push("bạn chọn");
       choice.textContent = `${prefix}. ${option}${tags.length ? ` (${tags.join(", ")})` : ""}`;
+      choice.classList.toggle("code-content", looksLikeCode(option));
       item.append(choice);
     });
 
