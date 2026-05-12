@@ -3,87 +3,166 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Trắc nghiệm JSON</title>
+    <title>EduQuiz Pro</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="app-shell">
-      <section class="topbar">
-        <div>
-          <p class="eyebrow">JSON Quiz Loader</p>
-          <h1>Làm bài trắc nghiệm từ file JSON</h1>
-        </div>
-        <button class="ghost-button" id="resetButton" type="button" hidden>Nạp bộ câu hỏi khác</button>
-      </section>
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="EduQuiz Pro">EduQuiz Pro</a>
+      <nav class="main-nav" aria-label="Điều hướng chính">
+        <button class="nav-link active" id="dashboardNav" type="button">Dashboard</button>
+        <button class="nav-link" id="resultsNav" type="button">My Results</button>
+      </nav>
+      <div class="header-actions">
+        <span class="timer-pill" id="timerPill"><span aria-hidden="true">⏱</span> 15:00 Remaining</span>
+        <button class="primary-button finish-button" id="submitButton" type="button" hidden>Finish Attempt</button>
+        <button class="icon-button" id="helpButton" type="button" aria-label="Trợ giúp">?</button>
+      </div>
+    </header>
 
-      <section class="upload-view" id="uploadView">
-        <div class="drop-zone" id="dropZone">
-          <input id="fileInput" type="file" accept=".json,application/json">
-          <div class="upload-icon" aria-hidden="true">JSON</div>
-          <h2>Kéo thả file JSON vào đây</h2>
-          <p>Hoặc bấm để chọn file từ máy tính. Dữ liệu được đọc cục bộ trên trình duyệt.</p>
+    <main>
+      <section class="upload-view page-section" id="uploadView">
+        <div class="upload-hero">
+          <h1>Làm Chủ Kiến Thức Qua Từng Câu Hỏi</h1>
+          <p>Nâng tầm trải nghiệm học tập với EduQuiz Pro. Tải lên tệp JSON của bạn và bắt đầu hành trình chinh phục đỉnh cao học thuật ngay hôm nay.</p>
         </div>
 
-        <div class="format-panel">
-          <div>
-            <h2>Định dạng hỗ trợ</h2>
-            <p>Bạn có thể dùng mảng câu hỏi trực tiếp, hoặc object có trường <code>questions</code>.</p>
+        <div class="upload-grid">
+          <div class="drop-zone" id="dropZone">
+            <input id="fileInput" type="file" accept=".json,application/json">
+            <div class="upload-icon" aria-hidden="true">▣</div>
+            <h2>Tải Lên Tệp Quiz</h2>
+            <p>Kéo và thả tệp JSON của bạn vào đây hoặc nhấn để chọn tệp từ máy tính của bạn.</p>
+            <button id="chooseFileButton" class="primary-button upload-button" type="button">↥ Chọn tệp JSON</button>
+            <div class="upload-meta">
+              <span>⊙ Hỗ trợ JSON</span>
+              <span>⊙ Tối đa 50MB</span>
+            </div>
           </div>
-          <pre><code>[
-  {
-    "question": "Java là ngôn ngữ gì?",
-    "options": ["Thông dịch", "Biên dịch", "Lập trình", "Đánh dấu"],
-    "answer": 2
-  },
-  {
-    "text": "Từ khóa tạo lớp trong Java?",
-    "choices": ["class", "function", "def", "struct"],
-    "correct": "class"
-  }
-]</code></pre>
-          <button id="loadSampleButton" class="secondary-button" type="button">Dùng dữ liệu mẫu</button>
+
+          <div class="feature-list" aria-label="Tính năng">
+            <article class="feature-card">
+              <span class="feature-icon">?</span>
+              <h2>Định Dạng Đa Dạng</h2>
+              <p>Hỗ trợ trắc nghiệm, câu hỏi ngắn và nhiều hình thức câu hỏi chuyên sâu khác.</p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon">↯</span>
+              <h2>Tính Điểm Tức Thì</h2>
+              <p>Nhận kết quả và phản hồi chi tiết ngay sau khi nộp bài để tối ưu hóa việc học.</p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon">⊞</span>
+              <h2>Giao Diện Trực Quan</h2>
+              <p>Thiết kế tối giản giúp bạn tập trung tối đa vào nội dung câu hỏi và kiến thức.</p>
+            </article>
+          </div>
         </div>
 
         <p class="error-message" id="errorMessage" role="alert"></p>
+
+        <section class="academic-section">
+          <div class="study-visual" aria-hidden="true">
+            <div class="study-window"></div>
+            <div class="study-person"></div>
+            <div class="study-laptop"></div>
+          </div>
+          <div class="academic-copy">
+            <h2>Được thiết kế cho sự xuất sắc về học thuật</h2>
+            <p>EduQuiz Pro không chỉ là một công cụ làm bài tập. Đó là người bạn đồng hành thông minh, giúp bạn hệ thống hóa kiến thức và đo lường sự tiến bộ của mình một cách khoa học nhất.</p>
+            <ul>
+              <li>Theo dõi lịch sử làm bài chi tiết</li>
+              <li>Phân tích điểm mạnh và điểm yếu</li>
+              <li>Chế độ ôn tập tập trung cao độ</li>
+            </ul>
+          </div>
+        </section>
       </section>
 
-      <section class="quiz-view" id="quizView" hidden>
+      <section class="quiz-view page-section" id="quizView" hidden>
         <aside class="quiz-sidebar">
-          <div class="score-card">
-            <span id="progressText">Câu 1 / 1</span>
-            <strong id="answeredText">0 đã trả lời</strong>
-          </div>
+          <h2>Question List</h2>
           <div class="question-map" id="questionMap" aria-label="Danh sách câu hỏi"></div>
-          <button id="submitButton" class="primary-button" type="button">Nộp bài</button>
+          <div class="question-legend">
+            <span><i class="legend-current"></i> Current</span>
+            <span><i class="legend-answered"></i> Answered</span>
+            <span><i class="legend-unseen"></i> Not Viewed</span>
+          </div>
         </aside>
 
-        <article class="question-panel">
-          <div class="question-header">
-            <span id="questionNumber">Câu 1</span>
-            <span id="questionStatus">Chưa trả lời</span>
+        <div class="quiz-main">
+          <div class="progress-row">
+            <strong id="progressText">Progress: 1/1 Questions</strong>
+            <span id="answeredText">0% Completed</span>
           </div>
-          <h2 id="questionText"></h2>
-          <div class="options-list" id="optionsList"></div>
-          <div class="nav-row">
-            <button id="prevButton" class="secondary-button" type="button">Câu trước</button>
-            <button id="nextButton" class="secondary-button" type="button">Câu tiếp</button>
-          </div>
-        </article>
-      </section>
+          <div class="progress-track"><span id="progressBar"></span></div>
 
-      <section class="result-view" id="resultView" hidden>
-        <div class="result-summary">
-          <p class="eyebrow">Kết quả</p>
-          <h2 id="scoreText"></h2>
-          <p id="resultDetail"></p>
-          <div class="result-actions">
-            <button id="reviewButton" class="primary-button" type="button">Xem đáp án</button>
-            <button id="retryButton" class="secondary-button" type="button">Làm lại</button>
+          <article class="question-panel">
+            <div class="question-header">
+              <span id="questionNumber">Question 1</span>
+              <span id="questionStatus">Chưa trả lời</span>
+            </div>
+            <div class="question-title" id="questionText"></div>
+            <div class="options-list" id="optionsList"></div>
+          </article>
+
+          <div class="nav-row">
+            <button id="prevButton" class="secondary-button" type="button">← Câu trước</button>
+            <button id="markButton" class="secondary-button mark-button" type="button">▱ Mark for Review</button>
+            <button id="nextButton" class="primary-button next-button" type="button">Câu tiếp theo →</button>
           </div>
         </div>
-        <div class="review-list" id="reviewList" hidden></div>
+      </section>
+
+      <section class="result-view page-section" id="resultView" hidden>
+        <div class="result-layout">
+          <section class="result-summary">
+            <div class="score-ring" id="scoreRing"><span id="scorePercent">0%</span><small id="scoreLabel">Result</small></div>
+            <div>
+              <h1>Quiz Completed!</h1>
+              <p id="resultDetail"></p>
+              <div class="result-actions">
+                <button id="retryButton" class="primary-button" type="button">Làm bài mới</button>
+                <button id="reviewButton" class="secondary-button" type="button">Share Result</button>
+              </div>
+            </div>
+          </section>
+
+          <aside class="result-stats">
+            <article><span class="stat-icon ok">✓</span><p>CORRECT</p><strong id="correctText">0 / 0</strong></article>
+            <article><span class="stat-icon bad">×</span><p>INCORRECT</p><strong id="incorrectText">0 / 0</strong></article>
+            <article><span class="stat-icon speed">⏱</span><p>SPEED</p><strong>38s / qst</strong></article>
+          </aside>
+        </div>
+
+        <div class="review-heading">
+          <h2>Review Questions</h2>
+          <div class="review-tabs">
+            <button class="active" type="button" id="allReviewTab">All (0)</button>
+            <button type="button" id="wrongReviewTab">Incorrect (0)</button>
+          </div>
+        </div>
+        <div class="review-list" id="reviewList"></div>
+
+        <section class="next-challenge">
+          <h2>Ready for the next challenge?</h2>
+          <p>Level up your skills with curated daily challenges and earn more points.</p>
+          <button id="resetButton" class="secondary-button" type="button" hidden>Start Next Quiz</button>
+        </section>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>EduQuiz Pro</strong>
+        <p>© 2024 EduQuiz Pro. Designed for focused, stress-free academic excellence.</p>
+      </div>
+      <nav aria-label="Liên kết phụ">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Support</a>
+      </nav>
+    </footer>
 
     <script src="app.js"></script>
   </body>

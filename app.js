@@ -29,12 +29,15 @@ const elements = {
   resultView: document.querySelector("#resultView"),
   dropZone: document.querySelector("#dropZone"),
   fileInput: document.querySelector("#fileInput"),
+  chooseFileButton: document.querySelector("#chooseFileButton"),
   errorMessage: document.querySelector("#errorMessage"),
   resetButton: document.querySelector("#resetButton"),
-  loadSampleButton: document.querySelector("#loadSampleButton"),
+  dashboardNav: document.querySelector("#dashboardNav"),
+  resultsNav: document.querySelector("#resultsNav"),
   questionMap: document.querySelector("#questionMap"),
   progressText: document.querySelector("#progressText"),
   answeredText: document.querySelector("#answeredText"),
+  progressBar: document.querySelector("#progressBar"),
   questionNumber: document.querySelector("#questionNumber"),
   questionStatus: document.querySelector("#questionStatus"),
   questionText: document.querySelector("#questionText"),
@@ -42,7 +45,13 @@ const elements = {
   prevButton: document.querySelector("#prevButton"),
   nextButton: document.querySelector("#nextButton"),
   submitButton: document.querySelector("#submitButton"),
-  scoreText: document.querySelector("#scoreText"),
+  scorePercent: document.querySelector("#scorePercent"),
+  scoreRing: document.querySelector("#scoreRing"),
+  scoreLabel: document.querySelector("#scoreLabel"),
+  correctText: document.querySelector("#correctText"),
+  incorrectText: document.querySelector("#incorrectText"),
+  allReviewTab: document.querySelector("#allReviewTab"),
+  wrongReviewTab: document.querySelector("#wrongReviewTab"),
   resultDetail: document.querySelector("#resultDetail"),
   reviewButton: document.querySelector("#reviewButton"),
   retryButton: document.querySelector("#retryButton"),
@@ -55,6 +64,11 @@ function showError(message) {
 
 function clearError() {
   elements.errorMessage.textContent = "";
+}
+
+function setActiveNav(view) {
+  elements.dashboardNav.classList.toggle("active", view !== "result");
+  elements.resultsNav.classList.toggle("active", view === "result");
 }
 
 function readQuestionText(item, index) {
@@ -171,9 +185,10 @@ function loadQuestions(questions) {
   state.submitted = false;
   elements.uploadView.hidden = true;
   elements.resultView.hidden = true;
-  elements.reviewList.hidden = true;
   elements.quizView.hidden = false;
+  elements.submitButton.hidden = false;
   elements.resetButton.hidden = false;
+  setActiveNav("quiz");
   renderQuiz();
 }
 
@@ -219,18 +234,70 @@ function looksLikeCode(text) {
   return /[\n\r]/.test(text) || /\b(public|class|static|void|new|Thread|Runnable|System\.out|import|synchronized|try|catch)\b|[{};<>]/.test(text);
 }
 
+function renderQuestionText(text) {
+  const codeFencePattern = /```[^\n\r]*[\r\n]+([\s\S]*?)```/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeFencePattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: text.slice(lastIndex, match.index).trim() });
+    }
+    parts.push({ type: "code", value: match[1].trim() });
+    lastIndex = codeFencePattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({ type: "text", value: text.slice(lastIndex).trim() });
+  }
+
+  if (parts.length === 1 && parts[0].type === "text" && /[\n\r]/.test(text) && looksLikeCode(text)) {
+    parts[0].type = "code";
+  }
+
+  elements.questionText.innerHTML = "";
+  elements.questionText.classList.toggle("has-code", parts.some((part) => part.type === "code"));
+
+  if (parts.length === 0 || !parts.some((part) => part.value)) {
+    elements.questionText.textContent = text;
+    return;
+  }
+
+  parts
+    .filter((part) => part.value)
+    .forEach((part) => {
+      if (part.type === "code") {
+        const pre = document.createElement("pre");
+        pre.className = "question-code code-content";
+        const code = document.createElement("code");
+        code.textContent = part.value;
+        pre.append(code);
+        elements.questionText.append(pre);
+        return;
+      }
+
+      const block = document.createElement("div");
+      block.className = "question-copy";
+      block.textContent = part.value;
+      elements.questionText.append(block);
+    });
+}
+
 function renderQuiz() {
   const question = state.questions[state.currentIndex];
   const answeredCount = state.answers.filter((answer) => answer !== null).length;
+  const completedPercent = Math.round(((state.currentIndex + 1) / state.questions.length) * 100);
+  const answerPercent = Math.round((answeredCount / state.questions.length) * 100);
 
-  elements.progressText.textContent = `Câu ${state.currentIndex + 1} / ${state.questions.length}`;
-  elements.answeredText.textContent = `${answeredCount} đã trả lời`;
+  elements.progressText.textContent = `Progress: ${state.currentIndex + 1}/${state.questions.length} Questions`;
+  elements.answeredText.textContent = `${completedPercent}% Completed`;
+  elements.progressBar.style.width = `${completedPercent}%`;
   elements.questionNumber.textContent = question.chapterTitle
-    ? `${question.chapterTitle} · Câu ${state.currentIndex + 1}`
-    : `Câu ${state.currentIndex + 1}`;
-  elements.questionStatus.textContent = state.answers[state.currentIndex] === null ? "Chưa trả lời" : "Đã trả lời";
-  elements.questionText.textContent = question.text;
-  elements.questionText.classList.toggle("code-content", looksLikeCode(question.text));
+    ? `${question.chapterTitle} · Question ${state.currentIndex + 1}`
+    : `Question ${state.currentIndex + 1}`;
+  elements.questionStatus.textContent = state.answers[state.currentIndex] === null ? "Difficulty: Medium" : `Answered: ${answerPercent}%`;
+  renderQuestionText(question.text);
   elements.prevButton.disabled = state.currentIndex === 0;
   elements.nextButton.disabled = state.currentIndex === state.questions.length - 1;
 
@@ -249,7 +316,11 @@ function renderQuiz() {
     optionText.textContent = option;
     optionText.classList.toggle("code-content", looksLikeCode(option));
 
-    button.append(marker, optionText);
+    const check = document.createElement("span");
+    check.className = "option-check";
+    check.textContent = "✓";
+
+    button.append(marker, optionText, check);
     button.addEventListener("click", () => {
       state.answers[state.currentIndex] = index;
       renderQuiz();
@@ -274,23 +345,42 @@ function submitQuiz() {
   }
 
   const score = calculateScore();
+  const percent = Math.round((score / state.questions.length) * 100);
+  const incorrect = state.questions.length - score;
   state.submitted = true;
   elements.quizView.hidden = true;
+  elements.uploadView.hidden = true;
   elements.resultView.hidden = false;
-  elements.reviewList.hidden = true;
-  elements.scoreText.textContent = `${score} / ${state.questions.length}`;
-  elements.resultDetail.textContent = `Bạn trả lời đúng ${score} trên tổng số ${state.questions.length} câu.`;
+  elements.submitButton.hidden = true;
+  elements.scorePercent.textContent = `${percent}%`;
+  elements.scoreLabel.textContent = percent >= 80 ? "Excellent" : percent >= 50 ? "Good" : "Review";
+  elements.scoreRing.style.setProperty("--score-angle", `${percent * 3.6}deg`);
+  elements.correctText.textContent = `${String(score).padStart(2, "0")} / ${state.questions.length}`;
+  elements.incorrectText.textContent = `${String(incorrect).padStart(2, "0")} / ${state.questions.length}`;
+  elements.allReviewTab.textContent = `All (${state.questions.length})`;
+  elements.wrongReviewTab.textContent = `Incorrect (${incorrect})`;
+  elements.resultDetail.textContent = `Bạn trả lời đúng ${score} trên tổng số ${state.questions.length} câu. Xem lại từng câu để nắm chắc phần còn yếu.`;
+  setActiveNav("result");
+  renderReview();
 }
 
 function renderReview() {
   elements.reviewList.innerHTML = "";
   state.questions.forEach((question, index) => {
+    const isCorrect = state.answers[index] === question.answer;
     const item = document.createElement("article");
     item.className = "review-item";
+    if (!isCorrect) item.classList.add("wrong");
 
     const title = document.createElement("h3");
-    title.textContent = `Câu ${index + 1}: ${question.text}`;
+    const status = document.createElement("span");
+    status.className = "review-status";
+    status.textContent = isCorrect ? "✓ Correct" : "× Incorrect";
+    title.append(status, document.createTextNode(`Question ${index + 1}`), document.createElement("br"), document.createTextNode(question.text));
     item.append(title);
+
+    const options = document.createElement("div");
+    options.className = "review-options";
 
     question.options.forEach((option, optionIndex) => {
       const choice = document.createElement("p");
@@ -299,24 +389,31 @@ function renderReview() {
       if (optionIndex === state.answers[index] && optionIndex !== question.answer) choice.classList.add("wrong");
 
       const prefix = String.fromCharCode(65 + optionIndex);
-      const tags = [];
-      if (optionIndex === question.answer) tags.push("đáp án đúng");
-      if (optionIndex === state.answers[index]) tags.push("bạn chọn");
-      choice.textContent = `${prefix}. ${option}${tags.length ? ` (${tags.join(", ")})` : ""}`;
+      const letter = document.createElement("span");
+      letter.className = "choice-letter";
+      letter.textContent = prefix;
+      const text = document.createElement("span");
+      text.textContent = option;
+      const mark = document.createElement("span");
+      mark.textContent = optionIndex === question.answer ? "✓" : optionIndex === state.answers[index] ? "×" : "";
+      choice.append(letter, text, mark);
       choice.classList.toggle("code-content", looksLikeCode(option));
-      item.append(choice);
+      options.append(choice);
     });
 
-    if (question.explanation) {
-      const explanation = document.createElement("p");
-      explanation.className = "review-choice";
-      explanation.textContent = `Giải thích: ${question.explanation}`;
-      item.append(explanation);
-    }
+    item.append(options);
+
+    const explanation = document.createElement("p");
+    explanation.className = "review-note";
+    explanation.textContent = question.explanation
+      ? `${isCorrect ? "Explanation" : "Correction"}: ${question.explanation}`
+      : isCorrect
+        ? "Explanation: Bạn đã chọn đúng đáp án cho câu này."
+        : `Correction: Đáp án đúng là ${String.fromCharCode(65 + question.answer)}. ${question.options[question.answer]}`;
+    item.append(explanation);
 
     elements.reviewList.append(item);
   });
-  elements.reviewList.hidden = !elements.reviewList.hidden;
 }
 
 function resetToUpload() {
@@ -328,6 +425,8 @@ function resetToUpload() {
   elements.quizView.hidden = true;
   elements.resultView.hidden = true;
   elements.resetButton.hidden = true;
+  elements.submitButton.hidden = true;
+  setActiveNav("upload");
   clearError();
 }
 
@@ -337,12 +436,38 @@ function retryQuiz() {
   state.submitted = false;
   elements.resultView.hidden = true;
   elements.quizView.hidden = false;
+  elements.submitButton.hidden = false;
+  setActiveNav("quiz");
   renderQuiz();
 }
 
 elements.fileInput.addEventListener("change", (event) => handleFile(event.target.files[0]));
-elements.loadSampleButton.addEventListener("click", () => loadQuestions(normalizeQuestions(sampleQuestions)));
+elements.chooseFileButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  elements.fileInput.click();
+});
+elements.dropZone.addEventListener("click", () => elements.fileInput.click());
 elements.resetButton.addEventListener("click", resetToUpload);
+elements.dashboardNav.addEventListener("click", () => {
+  if (state.questions.length && !state.submitted) {
+    elements.uploadView.hidden = true;
+    elements.resultView.hidden = true;
+    elements.quizView.hidden = false;
+    elements.submitButton.hidden = false;
+    setActiveNav("quiz");
+    return;
+  }
+  resetToUpload();
+});
+elements.resultsNav.addEventListener("click", () => {
+  if (!state.submitted) return;
+  elements.uploadView.hidden = true;
+  elements.quizView.hidden = true;
+  elements.resultView.hidden = false;
+  elements.submitButton.hidden = true;
+  setActiveNav("result");
+});
 elements.prevButton.addEventListener("click", () => {
   state.currentIndex = Math.max(0, state.currentIndex - 1);
   renderQuiz();
