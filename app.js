@@ -16,6 +16,9 @@ const sampleQuestions = [
   }
 ];
 
+const HISTORY_STORAGE_KEY = "eduQuizPro.results.v1";
+const MAX_HISTORY_ITEMS = 10;
+
 const state = {
   questions: [],
   answers: [],
@@ -24,7 +27,12 @@ const state = {
   timeLimitMinutes: 15,
   remainingSeconds: 15 * 60,
   timerId: null,
-  timeExpired: false
+  timeExpired: false,
+  startedAt: null,
+  currentQuizName: "Quiz",
+  reviewFilter: "all",
+  resultStats: null,
+  history: []
 };
 
 const elements = {
@@ -57,12 +65,16 @@ const elements = {
   scoreLabel: document.querySelector("#scoreLabel"),
   correctText: document.querySelector("#correctText"),
   incorrectText: document.querySelector("#incorrectText"),
+  speedText: document.querySelector("#speedText"),
   allReviewTab: document.querySelector("#allReviewTab"),
   wrongReviewTab: document.querySelector("#wrongReviewTab"),
   resultDetail: document.querySelector("#resultDetail"),
   reviewButton: document.querySelector("#reviewButton"),
   retryButton: document.querySelector("#retryButton"),
-  reviewList: document.querySelector("#reviewList")
+  reviewList: document.querySelector("#reviewList"),
+  historyPanel: document.querySelector("#historyPanel"),
+  historyList: document.querySelector("#historyList"),
+  clearHistoryButton: document.querySelector("#clearHistoryButton")
 };
 
 function showError(message) {
@@ -78,6 +90,47 @@ function setActiveNav(view) {
   elements.resultsNav.classList.toggle("active", view === "result");
 }
 
+function loadHistory() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry) => entry && typeof entry === "object") : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistHistory() {
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.history.slice(0, MAX_HISTORY_ITEMS)));
+  } catch {
+    const compactHistory = state.history.slice(0, 3).map((entry) => ({
+      ...entry,
+      questions: [],
+      answers: []
+    }));
+    state.history = compactHistory;
+    try {
+      window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(compactHistory));
+    } catch {
+      state.history = [];
+    }
+  }
+}
+
+function saveHistoryEntry(entry) {
+  state.history = [
+    entry,
+    ...state.history.filter((item) => item.id !== entry.id)
+  ].slice(0, MAX_HISTORY_ITEMS);
+  persistHistory();
+}
+
+function clearHistory() {
+  state.history = [];
+  window.localStorage.removeItem(HISTORY_STORAGE_KEY);
+  renderHistory();
+}
+
 function formatTime(seconds) {
   const safeSeconds = Math.max(0, seconds);
   const hours = Math.floor(safeSeconds / 3600);
@@ -89,6 +142,19 @@ function formatTime(seconds) {
   }
 
   return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
+function formatDuration(seconds) {
+  const safeSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
+
+  if (minutes > 0) return `${minutes}m ${secs}s`;
+  return `${secs}s`;
+}
+
+function formatSpeed(secondsPerQuestion) {
+  return `${formatDuration(secondsPerQuestion)} / qst`;
 }
 
 function updateTimerDisplay() {
@@ -106,6 +172,7 @@ function stopTimer() {
 function startTimer() {
   stopTimer();
   state.timeExpired = false;
+  state.startedAt = Date.now();
   state.remainingSeconds = state.timeLimitMinutes * 60;
   updateTimerDisplay();
 
@@ -244,12 +311,15 @@ function normalizeQuestions(data) {
   });
 }
 
-function loadQuestions(questions) {
+function loadQuestions(questions, quizName = "Quiz") {
   state.questions = questions;
   state.answers = Array.from({ length: questions.length }, () => null);
   state.currentIndex = 0;
   state.submitted = false;
   state.timeExpired = false;
+  state.currentQuizName = quizName;
+  state.reviewFilter = "all";
+  state.resultStats = null;
   setTimeLimit(readTimeLimit());
   elements.uploadView.hidden = true;
   elements.resultView.hidden = true;
@@ -273,7 +343,7 @@ async function handleFile(file) {
   try {
     const content = await file.text();
     const data = JSON.parse(content);
-    loadQuestions(normalizeQuestions(data));
+    loadQuestions(normalizeQuestions(data), file.name);
   } catch (error) {
     showError(error.message || "Không đọc được file JSON.");
   } finally {
@@ -406,6 +476,112 @@ function calculateScore() {
   }, 0);
 }
 
+function getElapsedSeconds() {
+  const limitSeconds = state.timeLimitMinutes * 60;
+  if (state.timeExpired) return limitSeconds;
+
+  const elapsedByClock = state.startedAt ? Math.round((Date.now() - state.startedAt) / 1000) : 0;
+  const elapsedByTimer = limitSeconds - state.remainingSeconds;
+  return Math.max(0, Math.min(limitSeconds, Math.max(elapsedByClock, elapsedByTimer)));
+}
+
+function buildResultStats() {
+  const score = calculateScore();
+  const questionCount = state.questions.length;
+  const percent = Math.round((score / questionCount) * 100);
+  const incorrect = questionCount - score;
+  const elapsedSeconds = getElapsedSeconds();
+
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    quizName: state.currentQuizName,
+    score,
+    percent,
+    incorrect,
+    questionCount,
+    elapsedSeconds,
+    speedSeconds: questionCount > 0 && elapsedSeconds > 0 ? Math.max(1, Math.round(elapsedSeconds / questionCount)) : 0,
+    timeLimitMinutes: state.timeLimitMinutes,
+    timeExpired: state.timeExpired,
+    questions: state.questions,
+    answers: state.answers
+  };
+}
+
+function renderResult(stats) {
+  state.resultStats = stats;
+  elements.quizView.hidden = true;
+  elements.uploadView.hidden = true;
+  elements.resultView.hidden = false;
+  elements.submitButton.hidden = true;
+  elements.scorePercent.textContent = `${stats.percent}%`;
+  elements.scoreLabel.textContent = stats.percent >= 80 ? "Excellent" : stats.percent >= 50 ? "Good" : "Review";
+  elements.scoreRing.style.setProperty("--score-angle", `${stats.percent * 3.6}deg`);
+  elements.correctText.textContent = `${String(stats.score).padStart(2, "0")} / ${stats.questionCount}`;
+  elements.incorrectText.textContent = `${String(stats.incorrect).padStart(2, "0")} / ${stats.questionCount}`;
+  elements.speedText.textContent = formatSpeed(stats.speedSeconds);
+  elements.allReviewTab.textContent = `All (${stats.questionCount})`;
+  elements.wrongReviewTab.textContent = `Incorrect (${stats.incorrect})`;
+  elements.resultDetail.textContent = `Bạn trả lời đúng ${stats.score} trên tổng số ${stats.questionCount} câu trong ${formatDuration(stats.elapsedSeconds)}.`;
+  if (stats.timeExpired) {
+    elements.resultDetail.textContent = `Hết giờ. Bài đã được tự động nộp. Bạn trả lời đúng ${stats.score} trên tổng số ${stats.questionCount} câu.`;
+  }
+  setActiveNav("result");
+  renderReview();
+  renderHistory();
+}
+
+function openHistoryEntry(entry) {
+  if (!entry || !Array.isArray(entry.questions) || !Array.isArray(entry.answers) || entry.questions.length === 0) {
+    showError("Kết quả này chỉ còn thông tin tóm tắt, không đủ dữ liệu để xem lại câu hỏi.");
+    return;
+  }
+
+  stopTimer();
+  state.questions = entry.questions;
+  state.answers = entry.answers;
+  state.currentIndex = 0;
+  state.submitted = true;
+  state.timeExpired = Boolean(entry.timeExpired);
+  state.timeLimitMinutes = entry.timeLimitMinutes || state.timeLimitMinutes;
+  state.remainingSeconds = Math.max(0, state.timeLimitMinutes * 60 - (entry.elapsedSeconds || 0));
+  state.currentQuizName = entry.quizName || "Quiz";
+  state.reviewFilter = "all";
+  updateTimerDisplay();
+  renderResult(entry);
+}
+
+function renderHistory() {
+  if (!elements.historyPanel || !elements.historyList) return;
+
+  elements.historyPanel.hidden = state.history.length === 0;
+  elements.historyList.innerHTML = "";
+
+  state.history.forEach((entry) => {
+    const item = document.createElement("article");
+    item.className = "history-item";
+    if (state.resultStats && entry.id === state.resultStats.id) item.classList.add("active");
+
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = entry.quizName || "Quiz";
+    const meta = document.createElement("span");
+    const createdAt = entry.createdAt ? new Date(entry.createdAt).toLocaleString("vi-VN") : "";
+    meta.textContent = `${createdAt} | ${entry.score}/${entry.questionCount} | ${formatSpeed(entry.speedSeconds || 0)}`;
+    info.append(title, meta);
+
+    const openButton = document.createElement("button");
+    openButton.className = "secondary-button";
+    openButton.type = "button";
+    openButton.textContent = "Open";
+    openButton.addEventListener("click", () => openHistoryEntry(entry));
+
+    item.append(info, openButton);
+    elements.historyList.append(item);
+  });
+}
+
 function submitQuiz(options = {}) {
   if (state.submitted) return;
 
@@ -416,35 +592,36 @@ function submitQuiz(options = {}) {
   }
 
   stopTimer();
-  const score = calculateScore();
-  const percent = Math.round((score / state.questions.length) * 100);
-  const incorrect = state.questions.length - score;
+  const stats = buildResultStats();
   state.submitted = true;
-  state.remainingSeconds = Math.max(0, state.remainingSeconds);
+  state.remainingSeconds = Math.max(0, state.timeLimitMinutes * 60 - stats.elapsedSeconds);
   updateTimerDisplay();
-  elements.quizView.hidden = true;
-  elements.uploadView.hidden = true;
-  elements.resultView.hidden = false;
-  elements.submitButton.hidden = true;
-  elements.scorePercent.textContent = `${percent}%`;
-  elements.scoreLabel.textContent = percent >= 80 ? "Excellent" : percent >= 50 ? "Good" : "Review";
-  elements.scoreRing.style.setProperty("--score-angle", `${percent * 3.6}deg`);
-  elements.correctText.textContent = `${String(score).padStart(2, "0")} / ${state.questions.length}`;
-  elements.incorrectText.textContent = `${String(incorrect).padStart(2, "0")} / ${state.questions.length}`;
-  elements.allReviewTab.textContent = `All (${state.questions.length})`;
-  elements.wrongReviewTab.textContent = `Incorrect (${incorrect})`;
-  elements.resultDetail.textContent = `Bạn trả lời đúng ${score} trên tổng số ${state.questions.length} câu. Xem lại từng câu để nắm chắc phần còn yếu.`;
-  if (state.timeExpired) {
-    elements.resultDetail.textContent = `Hết giờ. Bài đã được tự động nộp. Bạn trả lời đúng ${score} trên tổng số ${state.questions.length} câu.`;
-  }
-  setActiveNav("result");
-  renderReview();
+  saveHistoryEntry(stats);
+  renderResult(stats);
 }
 
 function renderReview() {
   elements.reviewList.innerHTML = "";
-  state.questions.forEach((question, index) => {
-    const isCorrect = state.answers[index] === question.answer;
+  elements.allReviewTab.classList.toggle("active", state.reviewFilter === "all");
+  elements.wrongReviewTab.classList.toggle("active", state.reviewFilter === "wrong");
+
+  const questionsToRender = state.questions
+    .map((question, index) => ({
+      question,
+      index,
+      isCorrect: state.answers[index] === question.answer
+    }))
+    .filter((item) => state.reviewFilter === "all" || !item.isCorrect);
+
+  if (questionsToRender.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "review-empty";
+    empty.textContent = "Không có câu sai.";
+    elements.reviewList.append(empty);
+    return;
+  }
+
+  questionsToRender.forEach(({ question, index, isCorrect }) => {
     const item = document.createElement("article");
     item.className = "review-item";
     if (!isCorrect) item.classList.add("wrong");
@@ -500,6 +677,8 @@ function resetToUpload() {
   state.currentIndex = 0;
   state.submitted = false;
   state.timeExpired = false;
+  state.reviewFilter = "all";
+  state.resultStats = null;
   setTimeLimit(readTimeLimit());
   elements.uploadView.hidden = false;
   elements.quizView.hidden = true;
@@ -515,6 +694,8 @@ function retryQuiz() {
   state.currentIndex = 0;
   state.submitted = false;
   state.timeExpired = false;
+  state.reviewFilter = "all";
+  state.resultStats = null;
   startTimer();
   elements.resultView.hidden = true;
   elements.quizView.hidden = false;
@@ -555,12 +736,18 @@ elements.dashboardNav.addEventListener("click", () => {
   resetToUpload();
 });
 elements.resultsNav.addEventListener("click", () => {
-  if (!state.submitted) return;
+  if (!state.submitted) {
+    if (state.history.length > 0) {
+      openHistoryEntry(state.history[0]);
+    }
+    return;
+  }
   elements.uploadView.hidden = true;
   elements.quizView.hidden = true;
   elements.resultView.hidden = false;
   elements.submitButton.hidden = true;
   setActiveNav("result");
+  renderHistory();
 });
 elements.prevButton.addEventListener("click", () => {
   state.currentIndex = Math.max(0, state.currentIndex - 1);
@@ -572,7 +759,19 @@ elements.nextButton.addEventListener("click", () => {
 });
 elements.submitButton.addEventListener("click", submitQuiz);
 elements.retryButton.addEventListener("click", retryQuiz);
-elements.reviewButton.addEventListener("click", renderReview);
+elements.reviewButton.addEventListener("click", () => {
+  state.reviewFilter = "all";
+  renderReview();
+});
+elements.allReviewTab.addEventListener("click", () => {
+  state.reviewFilter = "all";
+  renderReview();
+});
+elements.wrongReviewTab.addEventListener("click", () => {
+  state.reviewFilter = "wrong";
+  renderReview();
+});
+elements.clearHistoryButton.addEventListener("click", clearHistory);
 
 ["dragenter", "dragover"].forEach((eventName) => {
   elements.dropZone.addEventListener(eventName, (event) => {
@@ -592,4 +791,5 @@ elements.dropZone.addEventListener("drop", (event) => {
   handleFile(event.dataTransfer.files[0]);
 });
 
+state.history = loadHistory();
 setTimeLimit(state.timeLimitMinutes);
