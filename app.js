@@ -20,7 +20,11 @@ const state = {
   questions: [],
   answers: [],
   currentIndex: 0,
-  submitted: false
+  submitted: false,
+  timeLimitMinutes: 15,
+  remainingSeconds: 15 * 60,
+  timerId: null,
+  timeExpired: false
 };
 
 const elements = {
@@ -30,6 +34,8 @@ const elements = {
   dropZone: document.querySelector("#dropZone"),
   fileInput: document.querySelector("#fileInput"),
   chooseFileButton: document.querySelector("#chooseFileButton"),
+  timeLimitInput: document.querySelector("#timeLimitInput"),
+  timePresets: document.querySelectorAll(".time-preset"),
   errorMessage: document.querySelector("#errorMessage"),
   resetButton: document.querySelector("#resetButton"),
   dashboardNav: document.querySelector("#dashboardNav"),
@@ -45,6 +51,7 @@ const elements = {
   prevButton: document.querySelector("#prevButton"),
   nextButton: document.querySelector("#nextButton"),
   submitButton: document.querySelector("#submitButton"),
+  timerPill: document.querySelector("#timerPill"),
   scorePercent: document.querySelector("#scorePercent"),
   scoreRing: document.querySelector("#scoreRing"),
   scoreLabel: document.querySelector("#scoreLabel"),
@@ -69,6 +76,65 @@ function clearError() {
 function setActiveNav(view) {
   elements.dashboardNav.classList.toggle("active", view !== "result");
   elements.resultsNav.classList.toggle("active", view === "result");
+}
+
+function formatTime(seconds) {
+  const safeSeconds = Math.max(0, seconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const secs = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
+function updateTimerDisplay() {
+  elements.timerPill.textContent = `${formatTime(state.remainingSeconds)} Remaining`;
+  elements.timerPill.classList.toggle("is-warning", state.remainingSeconds <= 60 && !state.submitted);
+}
+
+function stopTimer() {
+  if (state.timerId) {
+    window.clearInterval(state.timerId);
+    state.timerId = null;
+  }
+}
+
+function startTimer() {
+  stopTimer();
+  state.timeExpired = false;
+  state.remainingSeconds = state.timeLimitMinutes * 60;
+  updateTimerDisplay();
+
+  state.timerId = window.setInterval(() => {
+    state.remainingSeconds -= 1;
+    updateTimerDisplay();
+
+    if (state.remainingSeconds <= 0) {
+      stopTimer();
+      state.timeExpired = true;
+      submitQuiz({ skipConfirm: true });
+    }
+  }, 1000);
+}
+
+function readTimeLimit() {
+  const rawMinutes = Number(elements.timeLimitInput.value);
+  const minutes = Number.isFinite(rawMinutes) ? Math.round(rawMinutes) : 15;
+  return Math.min(180, Math.max(1, minutes));
+}
+
+function setTimeLimit(minutes) {
+  state.timeLimitMinutes = Math.min(180, Math.max(1, Math.round(minutes)));
+  state.remainingSeconds = state.timeLimitMinutes * 60;
+  elements.timeLimitInput.value = String(state.timeLimitMinutes);
+  elements.timePresets.forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.minutes) === state.timeLimitMinutes);
+  });
+  updateTimerDisplay();
 }
 
 function readQuestionText(item, index) {
@@ -183,12 +249,15 @@ function loadQuestions(questions) {
   state.answers = Array.from({ length: questions.length }, () => null);
   state.currentIndex = 0;
   state.submitted = false;
+  state.timeExpired = false;
+  setTimeLimit(readTimeLimit());
   elements.uploadView.hidden = true;
   elements.resultView.hidden = true;
   elements.quizView.hidden = false;
   elements.submitButton.hidden = false;
   elements.resetButton.hidden = false;
   setActiveNav("quiz");
+  startTimer();
   renderQuiz();
 }
 
@@ -337,17 +406,22 @@ function calculateScore() {
   }, 0);
 }
 
-function submitQuiz() {
+function submitQuiz(options = {}) {
+  if (state.submitted) return;
+
   const unanswered = state.answers.filter((answer) => answer === null).length;
-  if (unanswered > 0) {
+  if (!options.skipConfirm && unanswered > 0) {
     const ok = window.confirm(`Bạn còn ${unanswered} câu chưa trả lời. Bạn vẫn muốn nộp bài?`);
     if (!ok) return;
   }
 
+  stopTimer();
   const score = calculateScore();
   const percent = Math.round((score / state.questions.length) * 100);
   const incorrect = state.questions.length - score;
   state.submitted = true;
+  state.remainingSeconds = Math.max(0, state.remainingSeconds);
+  updateTimerDisplay();
   elements.quizView.hidden = true;
   elements.uploadView.hidden = true;
   elements.resultView.hidden = false;
@@ -360,6 +434,9 @@ function submitQuiz() {
   elements.allReviewTab.textContent = `All (${state.questions.length})`;
   elements.wrongReviewTab.textContent = `Incorrect (${incorrect})`;
   elements.resultDetail.textContent = `Bạn trả lời đúng ${score} trên tổng số ${state.questions.length} câu. Xem lại từng câu để nắm chắc phần còn yếu.`;
+  if (state.timeExpired) {
+    elements.resultDetail.textContent = `Hết giờ. Bài đã được tự động nộp. Bạn trả lời đúng ${score} trên tổng số ${state.questions.length} câu.`;
+  }
   setActiveNav("result");
   renderReview();
 }
@@ -417,10 +494,13 @@ function renderReview() {
 }
 
 function resetToUpload() {
+  stopTimer();
   state.questions = [];
   state.answers = [];
   state.currentIndex = 0;
   state.submitted = false;
+  state.timeExpired = false;
+  setTimeLimit(readTimeLimit());
   elements.uploadView.hidden = false;
   elements.quizView.hidden = true;
   elements.resultView.hidden = true;
@@ -434,6 +514,8 @@ function retryQuiz() {
   state.answers = Array.from({ length: state.questions.length }, () => null);
   state.currentIndex = 0;
   state.submitted = false;
+  state.timeExpired = false;
+  startTimer();
   elements.resultView.hidden = true;
   elements.quizView.hidden = false;
   elements.submitButton.hidden = false;
@@ -446,6 +528,18 @@ elements.chooseFileButton.addEventListener("click", (event) => {
   event.preventDefault();
   event.stopPropagation();
   elements.fileInput.click();
+});
+elements.timeLimitInput.closest(".time-settings").addEventListener("click", (event) => {
+  event.stopPropagation();
+});
+elements.timeLimitInput.addEventListener("change", () => setTimeLimit(readTimeLimit()));
+elements.timeLimitInput.addEventListener("input", () => {
+  elements.timePresets.forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.minutes) === Number(elements.timeLimitInput.value));
+  });
+});
+elements.timePresets.forEach((button) => {
+  button.addEventListener("click", () => setTimeLimit(Number(button.dataset.minutes)));
 });
 elements.dropZone.addEventListener("click", () => elements.fileInput.click());
 elements.resetButton.addEventListener("click", resetToUpload);
@@ -497,3 +591,5 @@ elements.reviewButton.addEventListener("click", renderReview);
 elements.dropZone.addEventListener("drop", (event) => {
   handleFile(event.dataTransfer.files[0]);
 });
+
+setTimeLimit(state.timeLimitMinutes);

@@ -111,6 +111,12 @@ p {
   white-space: nowrap;
 }
 
+.timer-pill.is-warning {
+  border-color: #ffb4a8;
+  background: var(--danger-soft);
+  color: #b00000;
+}
+
 .icon-button {
   width: 28px;
   height: 28px;
@@ -248,6 +254,68 @@ p {
 .upload-button {
   margin-top: 18px;
   min-width: 224px;
+}
+
+.time-settings {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 18px;
+  border: 1px solid #d9e1f4;
+  border-radius: 12px;
+  background: #f8faff;
+  text-align: left;
+}
+
+.time-settings label {
+  color: #172033;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.time-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.time-input-row input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 0 14px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.time-input-row span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.time-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.time-preset {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary);
+  font-weight: 850;
+}
+
+.time-preset.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
 }
 
 .upload-meta {
@@ -1223,6 +1291,23 @@ p {
     padding: 0 18px;
   }
 
+  .time-settings {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .time-input-row input {
+    min-height: 44px;
+  }
+
+  .time-presets {
+    gap: 6px;
+  }
+
+  .time-preset {
+    min-height: 34px;
+  }
+
   .upload-meta {
     width: 100%;
     display: grid;
@@ -1524,15 +1609,21 @@ p {
   }
 
   .header-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     max-width: 100%;
   }
 
   .timer-pill {
-    display: none;
+    display: inline-flex;
+    max-width: none;
+    justify-content: center;
   }
 
   .finish-button {
-    max-width: 142px;
+    max-width: none;
   }
 
   .upload-meta,

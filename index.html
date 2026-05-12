@@ -33,6 +33,19 @@
             <div class="upload-icon" aria-hidden="true">▣</div>
             <h2>Tải Lên Tệp Quiz</h2>
             <p>Kéo và thả tệp JSON của bạn vào đây hoặc nhấn để chọn tệp từ máy tính của bạn.</p>
+            <div class="time-settings" aria-label="Cài đặt thời gian làm bài">
+              <label for="timeLimitInput">Thời gian làm bài</label>
+              <div class="time-input-row">
+                <input id="timeLimitInput" type="number" min="1" max="180" step="1" value="15" inputmode="numeric">
+                <span>phút</span>
+              </div>
+              <div class="time-presets" aria-label="Chọn nhanh thời gian">
+                <button class="time-preset active" type="button" data-minutes="15">15</button>
+                <button class="time-preset" type="button" data-minutes="30">30</button>
+                <button class="time-preset" type="button" data-minutes="45">45</button>
+                <button class="time-preset" type="button" data-minutes="60">60</button>
+              </div>
+            </div>
             <button id="chooseFileButton" class="primary-button upload-button" type="button">↥ Chọn tệp JSON</button>
             <div class="upload-meta">
               <span>⊙ Hỗ trợ JSON</span>
