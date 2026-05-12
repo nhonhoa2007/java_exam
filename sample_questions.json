@@ -1,0 +1,17 @@
+[
+  {
+    "question": "Java là ngôn ngữ lập trình được phát triển bởi công ty nào?",
+    "options": ["Microsoft", "Sun Microsystems", "Apple", "IBM"],
+    "answer": 1
+  },
+  {
+    "question": "Từ khóa nào dùng để tạo lớp trong Java?",
+    "options": ["class", "function", "define", "struct"],
+    "answer": "class"
+  },
+  {
+    "question": "Kiểu dữ liệu nào lưu giá trị đúng/sai?",
+    "options": ["int", "String", "boolean", "double"],
+    "answer": 2
+  }
+]

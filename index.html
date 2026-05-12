@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trắc nghiệm JSON</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">JSON Quiz Loader</p>
+          <h1>Làm bài trắc nghiệm từ file JSON</h1>
+        </div>
+        <button class="ghost-button" id="resetButton" type="button" hidden>Nạp bộ câu hỏi khác</button>
+      </section>
+
+      <section class="upload-view" id="uploadView">
+        <div class="drop-zone" id="dropZone">
+          <input id="fileInput" type="file" accept=".json,application/json">
+          <div class="upload-icon" aria-hidden="true">JSON</div>
+          <h2>Kéo thả file JSON vào đây</h2>
+          <p>Hoặc bấm để chọn file từ máy tính. Dữ liệu được đọc cục bộ trên trình duyệt.</p>
+        </div>
+
+        <div class="format-panel">
+          <div>
+            <h2>Định dạng hỗ trợ</h2>
+            <p>Bạn có thể dùng mảng câu hỏi trực tiếp, hoặc object có trường <code>questions</code>.</p>
+          </div>
+          <pre><code>[
+  {
+    "question": "Java là ngôn ngữ gì?",
+    "options": ["Thông dịch", "Biên dịch", "Lập trình", "Đánh dấu"],
+    "answer": 2
+  },
+  {
+    "text": "Từ khóa tạo lớp trong Java?",
+    "choices": ["class", "function", "def", "struct"],
+    "correct": "class"
+  }
+]</code></pre>
+          <button id="loadSampleButton" class="secondary-button" type="button">Dùng dữ liệu mẫu</button>
+        </div>
+
+        <p class="error-message" id="errorMessage" role="alert"></p>
+      </section>
+
+      <section class="quiz-view" id="quizView" hidden>
+        <aside class="quiz-sidebar">
+          <div class="score-card">
+            <span id="progressText">Câu 1 / 1</span>
+            <strong id="answeredText">0 đã trả lời</strong>
+          </div>
+          <div class="question-map" id="questionMap" aria-label="Danh sách câu hỏi"></div>
+          <button id="submitButton" class="primary-button" type="button">Nộp bài</button>
+        </aside>
+
+        <article class="question-panel">
+          <div class="question-header">
+            <span id="questionNumber">Câu 1</span>
+            <span id="questionStatus">Chưa trả lời</span>
+          </div>
+          <h2 id="questionText"></h2>
+          <div class="options-list" id="optionsList"></div>
+          <div class="nav-row">
+            <button id="prevButton" class="secondary-button" type="button">Câu trước</button>
+            <button id="nextButton" class="secondary-button" type="button">Câu tiếp</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="result-view" id="resultView" hidden>
+        <div class="result-summary">
+          <p class="eyebrow">Kết quả</p>
+          <h2 id="scoreText"></h2>
+          <p id="resultDetail"></p>
+          <div class="result-actions">
+            <button id="reviewButton" class="primary-button" type="button">Xem đáp án</button>
+            <button id="retryButton" class="secondary-button" type="button">Làm lại</button>
+          </div>
+        </div>
+        <div class="review-list" id="reviewList" hidden></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
